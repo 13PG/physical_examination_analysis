@@ -172,22 +172,23 @@ def research(sentences,queue):
     TJ_data = []
     for input_sentence in sentences:
         predicted_label = predict_label(input_sentence, model, tokenizer)
-        if predicted_label ==1:
+        if predicted_label ==1 and len(input_sentence)>=3:      #至少要有“姓名：”
             TJ_name.append(input_sentence)
         elif predicted_label ==2 and any(input_sentence.endswith(e) for e in locs):     
             TJ_loc.append(input_sentence)
         elif predicted_label ==3:
             D = extract_date(input_sentence)
-            if D:TJ_data.append(extract_date(input_sentence))
+            current_year = datetime.now().year
+            if D.year<=current_year:TJ_data.append(extract_date(input_sentence))     #防止ocr识别错误2023识别2029
     print(f"检索到的姓名有{TJ_name}\n检索到的机构有{TJ_loc}\n检索到的日期有{TJ_data}")
-    queue.put((1,TJ_name[0]))
-    queue.put((2,TJ_loc[0]))
-    queue.put((3,TJ_data[0]))           #后期这几个都可以考虑加个判断只拿第一个，不要设置成列表
-    # return [TJ_name,TJ_loc,TJ_data]
+    queue.put((1,TJ_name[0])) if TJ_name else queue.put((1,"无法识别"))
+    queue.put((2,TJ_loc[0])) if TJ_loc else queue.put((2,"无法识别"))
+    queue.put((3,TJ_data[0])) if TJ_data else queue.put((3,"无法识别"))          
+    #后期这几个都可以考虑加个判断只拿第一个，不要设置成列表，这样可以节省时间
 
 if __name__=="__main__":
     ##读取pdf中的文字
-    pdf_path = r"C:\Users\Administrator\Desktop\体检报告\二期\体检2\10027209-TJ-01.pdf"
+    pdf_path = r"C:\Users\Administrator\Desktop\体检报告\二期\体检2\10027254-TJ-02.pdf"
     imgs_path = extract_text_allpage(pdf_path,"img")            #得到是简历解析成图像的路径，所以不用担心会多读
     content,location,flag = img2word(imgs_path)
     if flag > 0.1:
