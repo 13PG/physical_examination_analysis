@@ -11,7 +11,9 @@ img                       |          data_collection.py图片暂存文件夹,**�
 chinese-roberta-wwm-ext-lagre   |    bert模型【https://hf-mirror.com/hfl/chinese-roberta-wwm-ext-large/tree/main】<br>
 ui.py                     |          检测界面源码
 server.py                 |          启动ui界面
-
+<br>
+![示意图]([https://github.com/******/dbscan_clustering_algorithm/blob/master/data/dbscan_performance_comparison.png](https://img-blog.csdnimg.cn/direct/0ed36d13bac64cf9819d7fabc248e90b.png "体检检测界面")
+<br>
 # 暂未提供的文件
 ## 数据集文件【基本结构：每行前面是一个文本后面紧跟着&数字，数字由你自己设定】
 数据集名称  | 类别比例\样本数量  | 训练后的模型
