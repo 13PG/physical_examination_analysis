@@ -58,26 +58,34 @@ def extract_date(text):
             except ValueError:
                 return None  # 若无法转换，则忽略并尝试下一个格式
 
-#图片转文字
-def img2word(img_paths):
+# ocr识别
+def ocr(img_path):
     content = []
     location = []
     sorce = 0
-    for img_path in img_paths:
-        ocr = PaddleOCR(use_angle_cls=True, lang="ch")  # need to run only once to download and load model into memory
-        result = ocr.ocr(img_path, cls=True)
-        for idx in range(len(result)):
-            res = result[idx]
-            for line in res:
-                if isinstance(line, list):
-                    location.append(line)
-                else:
-                    content.append(line[0])
-                    if line[1]<0.85:
-                        sorce+=1
+    ocr = PaddleOCR(use_angle_cls=True, lang="ch")  # need to run only once to download and load model into memory
+    result = ocr.ocr(img_path, cls=True)
+    for idx in range(len(result)):
+        res = result[idx]
+        for line in res:
+            if isinstance(line, list):
+                location.append(line)
+            else:
+                content.append(line[0])
+                if line[1]<0.85:
+                    sorce+=1
+    return content,location,sorce
+
+#图片转文字
+def img2word(img_paths):
+    if type(img_paths) == str:               #格式为jpg的
+        content,location,sorce = ocr(img_paths)
+    else:                                   #格式为pdf的
+        for img_path in img_paths:
+            content,location,sorce = ocr(img_path)
     if (len(content)) == 0:
         print("未识别出内容,建议转人工查看！！！")
-        content = ["1"]
+        content = ["1"]                     #这个占位置的，不用管
 
     return content,location,sorce/(len(content))
 
@@ -88,7 +96,7 @@ def is_enough(sentence,queue):
             ["耳","鼓膜","听力","五官"],
             ["口","扁桃体","咽喉","五官","牙齿"],        #口鼻不是特别关注的,但是利用正则不是特别好，以爱康国宾为例，它就算没做也会出现这个
             ["鼻","五官"],
-            ["胸透","胸部","胸片"],          #双肺纹理清晰，这个可能会存在于内科
+            ["胸透","胸部","胸片","回声均匀","肺门"],          #双肺纹理清晰，这个可能会存在于内科
             "心电图",                       #不能写心率，那个可能是内科
         ["谷丙转氨酶","谷丙","ALT","血清丙氨酸氨基转移酶"],
         ["谷草转氨酶","谷草","AST","天冬氨酸氨基转移酶"],
@@ -133,7 +141,7 @@ def is_worry(sentences,queue):
     config.num_labels = label_cnt   # 将 num_labels 添加到 config 中
     model = BertForSequenceClassification.from_pretrained(model_name, config=config)
     # # 加载训练好的模型参数，后面那个参数不加好像会报错
-    model.load_state_dict(torch.load(r'doctor_v2.pt'), strict=False)
+    model.load_state_dict(torch.load(r'doctor_v4.pt'), strict=False)
 
     # 设置模型为评估模式
     model.eval()
@@ -169,27 +177,29 @@ def research(sentences,queue):
     # 测试例子
     TJ_name = []
     TJ_loc = []
-    TJ_data = []
+    TJ_data = ""
     for input_sentence in sentences:
         predicted_label = predict_label(input_sentence, model, tokenizer)
         if predicted_label ==1 and len(input_sentence)>=3:      #至少要有“姓名：”
             TJ_name.append(input_sentence)
         elif predicted_label ==2 and any(input_sentence.endswith(e) for e in locs):     
             TJ_loc.append(input_sentence)
-        elif predicted_label ==3:
+        elif predicted_label ==3 and not TJ_data:       #有过答案就不要再继续下去了
             D = extract_date(input_sentence)
+            if not D :continue
             current_year = datetime.now().year
-            if D.year<=current_year:TJ_data.append(extract_date(input_sentence))     #防止ocr识别错误2023识别2029
+            if D.year<=current_year:        #防止ocr识别错误2023识别2029
+                diff = datetime.now() - D
+                TJ_data="超出有效期" if diff.days>93 else "体检日期在有效期内"      #默认一个月算31天
+                    
     print(f"检索到的姓名有{TJ_name}\n检索到的机构有{TJ_loc}\n检索到的日期有{TJ_data}")
     queue.put((1,TJ_name[0])) if TJ_name else queue.put((1,"无法识别"))
     queue.put((2,TJ_loc[0])) if TJ_loc else queue.put((2,"无法识别"))
-    queue.put((3,TJ_data[0])) if TJ_data else queue.put((3,"无法识别"))          
+    queue.put((3,TJ_data)) if TJ_data else queue.put((3,"无法识别"))          
     #后期这几个都可以考虑加个判断只拿第一个，不要设置成列表，这样可以节省时间
 
-if __name__=="__main__":
-    ##读取pdf中的文字
-    pdf_path = r"C:\Users\Administrator\Desktop\体检报告\二期\体检2\10027254-TJ-02.pdf"
-    imgs_path = extract_text_allpage(pdf_path,"img")            #得到是简历解析成图像的路径，所以不用担心会多读
+#主程序
+def main(imgs_path):
     content,location,flag = img2word(imgs_path)
     if flag > 0.1:
         print(f"##############################该简历质量不高,建议转人工处理！识别率仅为{1-flag}###################################")
@@ -216,5 +226,17 @@ if __name__=="__main__":
         task_id,res = queue.get()
         basic_info.append((task_id,res))
     basic_info.sort(key=lambda x: x[0])         #根据任务编号排序
-    print(f"最终结果：\n姓名:{basic_info[0][1]}\t体检机构:{basic_info[1][1]}\t体检日期:{basic_info[2][1]}\n项目是否做全:{basic_info[3][1]}\t项目是否异常:{basic_info[4][1]}")
+    print(f"最终结果：\n姓名:{basic_info[0][1]}\t体检机构:{basic_info[1][1]}\t是否在3个月内:{basic_info[2][1]}\n项目是否做全:{basic_info[3][1]}\t项目是否异常:{basic_info[4][1]}")
 
+
+if __name__=="__main__":
+    pdf_path = r"C:\Users\Administrator\Desktop\体检报告\二期\10026937-TJ-02.jpg"
+    # pdf_path = r"C:\Users\Administrator\Desktop\体检报告\二期\体检\10027065-TJ-01xy.pdf"
+    if pdf_path.endswith(".pdf"):           
+        imgs_path = extract_text_allpage(pdf_path,"img")            #得到是简历解析成图像的路径，所以不用担心会多读
+        main(imgs_path)
+    elif pdf_path.endswith(".jpg") or pdf_path.endswith(".png"):
+        imgs_path = pdf_path
+        main(imgs_path)
+    else:
+        print("不支持的文件类型！")
