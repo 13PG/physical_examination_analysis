@@ -11,6 +11,7 @@ img                       |          data_collection.py图片暂存文件夹,**�
 chinese-roberta-wwm-ext-lagre   |    bert模型【https://hf-mirror.com/hfl/chinese-roberta-wwm-ext-large/tree/main】<br>
 ui.py                     |          检测界面源码
 server.py                 |          启动ui界面
+envs.yaml                 |          anaconda环境配置信息
 
 
 <br>
