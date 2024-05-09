@@ -8,7 +8,7 @@ train_doctor_model.py     |          训练异常情况提取模型<br>
 train_info_model.py       |          训练基础信息提取模型<br>
 general_anlysis.py        |          利用训练好的模型对体检报告进行检测。主程序<br>
 img                       |          data_collection.py图片暂存文件夹,**你最好提前创建空的img文件夹**<br>
-chinese-roberta-wwm-ext-lagre   |    bert模型【(https://hf-mirror.com/hfl/chinese-roberta-wwm-ext-large)】<br>
+chinese-roberta-wwm-ext-lagre   |    bert模型(https://hf-mirror.com/hfl/chinese-roberta-wwm-ext-large)<br>
 ui.py                     |          检测界面源码
 server.py                 |          启动ui界面
 envs.yaml                 |          anaconda环境配置信息
